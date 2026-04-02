@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TR-808 Rhythm Composer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #121010;
+    --machine-bg: #2a2623;
+    --machine-bg-light: #332f2a;
+    --panel-dark: #1e1b18;
+    --panel-mid: #262220;
+    --border: #3d3832;
+    --border-light: #4a443d;
+    --text: #e8ddd0;
+    --text-dim: #7a7168;
+    --text-faint: #4a443d;
+
+    --red: #d44830;
+    --red-light: #e85a42;
+    --red-glow: rgba(212,72,48,0.35);
+    --orange: #e8873a;
+    --orange-light: #f0994a;
+    --orange-glow: rgba(232,135,58,0.35);
+    --yellow: #d4b840;
+    --yellow-light: #e0c850;
+    --yellow-glow: rgba(212,184,64,0.35);
+    --white-accent: #ede6db;
+    --white-glow: rgba(237,230,219,0.2);
+    --green: #50e070;
+    --green-glow: rgba(80,224,112,0.35);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Familjen Grotesk', sans-serif;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 860px;
+    padding: 16px;
+    opacity: 0;
+    animation: machineIn 0.8s ease-out 0.15s forwards;
+  }
+
+  @keyframes machineIn {
+    from { opacity:0; transform: translateY(24px) scale(0.98); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── MACHINE SHELL ─────────────────────────── */
+  .machine {
+    background: var(--machine-bg);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow:
+      0 30px 80px rgba(0,0,0,0.6),
+      0 2px 0 rgba(255,255,255,0.02) inset;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Top color stripe */
+  .machine::before {
+    content:'';
+    position: absolute;
+    top:0; left:0; right:0;
+    height: 4px;
+    background: linear-gradient(90deg,
+      var(--red) 0%, var(--orange) 30%, var(--yellow) 60%, var(--white-accent) 100%);
+    z-index: 10;
+  }
+
+  /* Subtle texture */
+  .machine::after {
+    content:'';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='4' height='4' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1' height='1' fill='rgba(0,0,0,0.08)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 20px;
+  }
+
+  .machine > * { position: relative; z-index: 1; }
+
+  /* ── HEADER ────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 32px 8px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .brand-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .brand-model {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--orange);
+    letter-spacing: -1px;
+  }
+
+  .header-right {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* ── TRANSPORT BAR ─────────────────────────── */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 12px 32px 16px;
+  }
+
+  .play-btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--orange);
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .play-btn:hover { background: rgba(232,135,58,0.1); box-shadow: 0 0 20px var(--orange-glow); }
+  .play-btn.on { background: var(--orange); box-shadow: 0 0 28px var(--orange-glow); }
+  .play-btn .icon-play { width:0;height:0; border-top:9px solid transparent; border-bottom:9px solid transparent; border-left:14px solid var(--orange); margin-left:3px; transition: all 0.15s; }
+  .play-btn .icon-stop { width:14px;height:14px; background:var(--orange); border-radius:2px; display:none; transition: all 0.15s; }
+  .play-btn.on .icon-play { display:none; }
+  .play-btn.on .icon-stop { display:block; background: var(--panel-dark); }
+
+  .tempo-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tempo-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .tempo-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--yellow);
+    min-width: 44px;
+    text-align: center;
+    text-shadow: 0 0 14px var(--yellow-glow);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--panel-dark);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--yellow);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--yellow-glow);
+  }
+
+  .tempo-slider { width: 110px; }
+
+  .vol-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .vol-icon { color: var(--text-dim); }
+  .vol-slider { width: 64px; }
+  .vol-slider::-webkit-slider-thumb { background: var(--text-dim); box-shadow: none; }
+  .vol-slider::-webkit-slider-thumb:hover { background: var(--text); }
+
+  /* ── DIVIDER ───────────────────────────────── */
+  .rule {
+    height: 1px;
+    margin: 0 32px;
+    background: linear-gradient(90deg, transparent, var(--border) 20%, var(--border) 80%, transparent);
+  }
+
+  /* ── PADS SECTION ──────────────────────────── */
+  .pads-section {
+    padding: 24px 32px;
+  }
+
+  .pads-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .pad {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    border: 2px solid var(--border);
+    background: var(--panel-dark);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .pad::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  /* LED dot on pad */
+  .pad::after {
+    content: '';
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    transition: all 0.15s;
+  }
+
+  .pad:hover { border-color: var(--border-light); transform: translateY(-1px); }
+
+  .pad:active, .pad.flash {
+    transform: scale(0.96);
+  }
+
+  .pad.flash::after {
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  /* Color variants */
+  .pad.red    { --pad-color: var(--red);    --pad-glow: var(--red-glow); }
+  .pad.orange { --pad-color: var(--orange); --pad-glow: var(--orange-glow); }
+  .pad.yellow { --pad-color: var(--yellow); --pad-glow: var(--yellow-glow); }
+  .pad.white  { --pad-color: var(--white-accent); --pad-glow: var(--white-glow); }
+
+  .pad.flash {
+    border-color: var(--pad-color);
+    box-shadow: 0 0 30px var(--pad-glow), inset 0 0 30px var(--pad-glow);
+  }
+
+  .pad.flash::before { opacity: 1; background: var(--pad-glow); }
+  .pad.flash::after { background: var(--pad-color); }
+
+  .pad.selected {
+    border-color: var(--pad-color);
+    box-shadow: 0 0 20px var(--pad-glow);
+    background: color-mix(in srgb, var(--pad-color) 8%, var(--panel-dark));
+  }
+
+  .pad.selected::after { background: var(--pad-color); box-shadow: 0 0 6px var(--pad-color); }
+
+  .pad-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    transition: color 0.15s;
+    pointer-events: none;
+  }
+
+  .pad.selected .pad-name,
+  .pad.flash .pad-name { color: var(--pad-color); }
+
+  .pad-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  /* ── KNOBS AREA (appears when a pad is selected) ── */
+  .knobs-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+    opacity: 0;
+  }
+
+  .knobs-panel.open {
+    max-height: 140px;
+    opacity: 1;
+  }
+
+  .knobs-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 20px 32px 8px;
+  }
+
+  .knob-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .knob {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: conic-gradient(from 220deg, var(--panel-dark), var(--machine-bg-light), var(--panel-dark));
+    border: 2px solid var(--border);
+    position: relative;
+    cursor: grab;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: border-color 0.2s;
+  }
+
+  .knob:hover { border-color: var(--border-light); }
+  .knob:active { cursor: grabbing; }
+
+  /* Pointer line */
+  .knob-pointer {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 2px;
+    height: 14px;
+    margin-left: -1px;
+    border-radius: 1px;
+    transform-origin: center 20px;
+    transition: background 0.2s;
+  }
+
+  /* Dot ring markers */
+  .knob-track {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+  }
+
+  .knob-dot {
+    position: absolute;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--text-faint);
+  }
+
+  .knob-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ── PATTERN EDITOR (16 steps under the pads) ── */
+  .pattern-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.45s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+    opacity: 0;
+  }
+
+  .pattern-panel.open {
+    max-height: 120px;
+    opacity: 1;
+  }
+
+  .pattern-inner {
+    padding: 12px 32px 4px;
+  }
+
+  .pattern-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .pattern-inst-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    min-width: 50px;
+  }
+
+  .pattern-steps {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .pattern-step-group {
+    display: flex;
+    gap: 3px;
+    flex: 1;
+  }
+
+  .pattern-step-group + .pattern-step-group { margin-left: 6px; }
+
+  .pstep {
+    flex: 1;
+    height: 32px;
+    max-width: 42px;
+    border-radius: 6px;
+    background: var(--panel-dark);
+    border: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+  }
+
+  .pstep:hover { background: var(--panel-mid); border-color: rgba(255,255,255,0.08); }
+
+  .pstep.on {
+    border-color: transparent;
+  }
+
+  .pstep.on.red    { background: var(--red);    box-shadow: 0 0 10px var(--red-glow); }
+  .pstep.on.orange { background: var(--orange); box-shadow: 0 0 10px var(--orange-glow); }
+  .pstep.on.yellow { background: var(--yellow); box-shadow: 0 0 10px var(--yellow-glow); }
+  .pstep.on.white  { background: var(--white-accent); box-shadow: 0 0 10px var(--white-glow); }
+
+  /* Playhead on steps */
+  .pstep.current::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 0 0 5px 5px;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green-glow);
+  }
+
+  /* Beat numbers */
+  .beat-nums {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    margin-left: 58px;
+    margin-bottom: 4px;
+  }
+
+  .bnum-group { display: flex; gap: 3px; flex: 1; }
+  .bnum-group + .bnum-group { margin-left: 6px; }
+
+  .bnum {
+    flex: 1;
+    max-width: 42px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--text-faint);
+  }
+
+  .bnum.down { color: var(--text-dim); }
+
+  /* ── EXPANDED SEQUENCER (other channels) ───── */
+  .seq-expand-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 32px 6px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .seq-expand-toggle.visible { opacity: 1; }
+
+  .seq-expand-toggle:hover .seq-toggle-label { color: var(--text); }
+
+  .seq-toggle-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    transition: color 0.2s;
+  }
+
+  .seq-toggle-arrow {
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.3s;
+  }
+
+  .seq-expand-toggle.expanded .seq-toggle-arrow { transform: rotate(180deg); }
+
+  .seq-expanded {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+    opacity: 0;
+  }
+
+  .seq-expanded.open {
+    max-height: 500px;
+    opacity: 1;
+  }
+
+  .seq-expanded-inner {
+    padding: 4px 32px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .seq-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .seq-row-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    min-width: 50px;
+    text-align: right;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .seq-row-label:hover { filter: brightness(1.3); }
+
+  .seq-row .pattern-steps { flex: 1; }
+
+  .seq-row .pstep { height: 24px; border-radius: 4px; }
+
+  /* ── PRESETS ────────────────────────────────── */
+  .presets {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    opacity: 0;
+    animation: machineIn 0.5s ease-out 0.9s forwards;
+  }
+
+  .presets-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .preset-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .preset-pill:hover { border-color: var(--orange); color: var(--orange); background: rgba(232,135,58,0.06); }
+  .preset-pill.on { border-color: var(--orange); color: var(--orange); background: rgba(232,135,58,0.1); }
+
+  .clear-pill {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .clear-pill:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── FOOTER CTA ────────────────────────────── */
+  .cta {
+    background: var(--panel-dark);
+    border-top: 1px solid rgba(255,255,255,0.03);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    opacity: 0;
+    animation: machineIn 0.5s ease-out 1.1s forwards;
+  }
+
+  .cta-copy {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .cta-copy strong { color: var(--text); font-weight: 600; }
+
+  .cta-btn {
+    font-family: 'Familjen Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 28px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--orange), var(--red));
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(212,72,48,0.3);
+  }
+
+  .cta-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(212,72,48,0.45); }
+
+  /* ── RESPONSIVE ────────────────────────────── */
+  @media (max-width: 600px) {
+    .wrapper { padding: 8px; }
+    .header, .transport, .pads-section, .presets, .cta,
+    .pattern-inner, .seq-expanded-inner { padding-left: 16px; padding-right: 16px; }
+    .rule { margin: 0 16px; }
+    .pads-grid { gap: 8px; }
+    .pad { border-radius: 12px; }
+    .pad-name { font-size: 9px; }
+    .knobs-inner { gap: 24px; }
+    .knob { width: 44px; height: 44px; }
+    .brand-model { font-size: 22px; }
+    .beat-nums { margin-left: 42px; }
+    .seq-row-label { min-width: 36px; font-size: 8px; }
+    .tempo-slider { width: 80px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="machine">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="brand">
+        <span class="brand-label">Rhythm Composer</span>
+        <span class="brand-model">TR-808</span>
+      </div>
+      <span class="header-right">Web Audio</span>
+    </div>
+
+    <!-- Transport -->
+    <div class="transport">
+      <button class="play-btn" id="playBtn" aria-label="Play/Stop">
+        <div class="icon-play"></div>
+        <div class="icon-stop"></div>
+      </button>
+      <div class="tempo-group">
+        <span class="tempo-tag">BPM</span>
+        <span class="tempo-val" id="tempoVal">120</span>
+        <input type="range" class="tempo-slider" id="tempoSlider" min="60" max="200" value="120">
+      </div>
+      <div class="vol-group">
+        <svg class="vol-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 5.5h2.5L8 2.5v11L4.5 10.5H2a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5z" fill="currentColor"/>
+          <path d="M10.5 4.5c1.25 1.1 2 2.75 2 4.5s-.75 3.4-2 4.5M10.5 7c.5.45.8 1.1.8 1.8s-.3 1.35-.8 1.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="75">
+      </div>
+    </div>
+
+    <div class="rule"></div>
+
+    <!-- PADS -->
+    <div class="pads-section">
+      <div class="pads-grid" id="padsGrid"></div>
+    </div>
+
+    <!-- KNOBS (appears on pad select) -->
+    <div class="knobs-panel" id="knobsPanel">
+      <div class="knobs-inner" id="knobsInner"></div>
+    </div>
+
+    <div class="rule"></div>
+
+    <!-- PATTERN EDITOR for selected pad -->
+    <div class="pattern-panel" id="patternPanel">
+      <div class="pattern-inner" id="patternInner"></div>
+    </div>
+
+    <!-- Expand toggle for full sequencer -->
+    <div class="seq-expand-toggle" id="seqToggle">
+      <span class="seq-toggle-label">All Channels</span>
+      <span class="seq-toggle-arrow">▼</span>
+    </div>
+
+    <!-- Expanded rows for other instruments -->
+    <div class="seq-expanded" id="seqExpanded">
+      <div class="seq-expanded-inner" id="seqExpandedInner"></div>
+    </div>
+
+    <!-- Presets -->
+    <div class="presets">
+      <span class="presets-tag">Patterns</span>
+      <button class="preset-pill" data-p="basic">Basic</button>
+      <button class="preset-pill" data-p="hiphop">Hip-Hop</button>
+      <button class="preset-pill" data-p="electro">Electro</button>
+      <button class="preset-pill" data-p="house">House</button>
+      <button class="clear-pill" id="clearBtn">Clear</button>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <span class="cta-copy">Love the <strong>808</strong>? Get the real thing.</span>
+      <button class="cta-btn">Shop Now →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── INSTRUMENT DEFS ─────────────────────────
+const STEPS = 16;
+const INSTS = [
+  { id:'kick',   name:'Kick',   color:'red',    sub:'Bass Drum',    knobs:['Tone','Decay','Drive'] },
+  { id:'snare',  name:'Snare',  color:'orange', sub:'Snare Drum',   knobs:['Tone','Snap','Decay'] },
+  { id:'clap',   name:'Clap',   color:'orange', sub:'Hand Clap',    knobs:['Tone','Decay','Spread'] },
+  { id:'hihatC', name:'HH-C',   color:'yellow', sub:'Closed Hat',   knobs:['Tone','Decay','Color'] },
+  { id:'hihatO', name:'HH-O',   color:'yellow', sub:'Open Hat',     knobs:['Tone','Decay','Color'] },
+  { id:'tom',    name:'Tom',    color:'red',    sub:'Low Tom',      knobs:['Tone','Decay','Pitch'] },
+  { id:'cowbell',name:'Cowb',   color:'white',  sub:'Cowbell',      knobs:['Tone','Decay','Color'] },
+  { id:'rim',    name:'Rim',    color:'white',  sub:'Rimshot',      knobs:['Tone','Decay','Pitch'] },
+];
+
+let pattern = INSTS.map(() => new Array(STEPS).fill(false));
+let knobValues = INSTS.map(() => [0.5, 0.5, 0.5]); // 3 knobs per inst, normalized 0-1
+let selectedPad = null;
+let playing = false;
+let currentStep = -1;
+let tempo = 120;
+let masterVol = 0.75;
+let timerId = null;
+let audioCtx = null;
+
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function mg(ctx, v) {
+  const g = ctx.createGain();
+  g.gain.value = v * masterVol;
+  g.connect(ctx.destination);
+  return g;
+}
+
+// ─── SYNTH ENGINES ───────────────────────────
+const synth = {
+  kick(ctx, k) {
+    const startF = 80 + k[0] * 160;
+    const decay = 0.2 + k[1] * 0.5;
+    const drive = 0.8 + k[2] * 0.8;
+    const o = ctx.createOscillator();
+    const g = mg(ctx, drive);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(startF, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(25, ctx.currentTime + decay);
+    g.gain.setValueAtTime(drive * masterVol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay + 0.1);
+    o.connect(g); o.start(); o.stop(ctx.currentTime + decay + 0.15);
+  },
+
+  snare(ctx, k) {
+    const tone = 120 + k[0] * 180;
+    const snap = 0.3 + k[1] * 0.7;
+    const decay = 0.08 + k[2] * 0.2;
+    // body
+    const o = ctx.createOscillator();
+    const og = mg(ctx, 0.4);
+    o.type = 'triangle'; o.frequency.setValueAtTime(tone, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.1);
+    og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    o.connect(og); o.start(); o.stop(ctx.currentTime + 0.12);
+    // noise
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.18, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const n = ctx.createBufferSource(); n.buffer = buf;
+    const ng = mg(ctx, snap);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1500+k[0]*3000;
+    n.connect(hp); hp.connect(ng);
+    ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    n.start(); n.stop(ctx.currentTime + decay);
+  },
+
+  clap(ctx, k) {
+    const tone = 800 + k[0] * 1200;
+    const decay = 0.08 + k[1] * 0.2;
+    const spread = 1 + Math.floor(k[2] * 4);
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) {
+      const env = Math.exp(-i/(ctx.sampleRate*0.04));
+      const r = (i % Math.floor(ctx.sampleRate * (0.003 + spread*0.001)) < ctx.sampleRate*0.0015) ? 1 : 0.2;
+      d[i] = (Math.random()*2-1)*env*r;
+    }
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=tone; bp.Q.value=1.5;
+    const g = mg(ctx, 0.7);
+    s.connect(bp); bp.connect(g);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    s.start();
+  },
+
+  hihatC(ctx, k) {
+    const color = 5000 + k[2] * 7000;
+    const decay = 0.02 + k[1] * 0.06;
+    const rats = [2,3,4.16,5.43,6.79,8.21];
+    const f = 30 + k[0] * 30;
+    const g = mg(ctx, 0.35);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=color; hp.connect(g);
+    rats.forEach(r => { const o=ctx.createOscillator(); o.type='square'; o.frequency.value=f*r; o.connect(hp); o.start(); o.stop(ctx.currentTime+decay+0.01); });
+  },
+
+  hihatO(ctx, k) {
+    const color = 5000 + k[2] * 7000;
+    const decay = 0.1 + k[1] * 0.3;
+    const rats = [2,3,4.16,5.43,6.79,8.21];
+    const f = 30 + k[0] * 30;
+    const g = mg(ctx, 0.35);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=color; hp.connect(g);
+    rats.forEach(r => { const o=ctx.createOscillator(); o.type='square'; o.frequency.value=f*r; o.connect(hp); o.start(); o.stop(ctx.currentTime+decay+0.01); });
+  },
+
+  tom(ctx, k) {
+    const pitch = 60 + k[2] * 120;
+    const decay = 0.15 + k[1] * 0.4;
+    const tone = pitch + k[0] * 40;
+    const o = ctx.createOscillator();
+    const g = mg(ctx, 0.8);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(tone, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(pitch * 0.4, ctx.currentTime + decay);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay + 0.05);
+    o.connect(g); o.start(); o.stop(ctx.currentTime + decay + 0.1);
+  },
+
+  cowbell(ctx, k) {
+    const f1 = 460 + k[0] * 200;
+    const f2 = 740 + k[0] * 200;
+    const decay = 0.15 + k[1] * 0.3;
+    const color = 400 + k[2] * 800;
+    const o1 = ctx.createOscillator(); const o2 = ctx.createOscillator();
+    o1.type='square'; o1.frequency.value=f1;
+    o2.type='square'; o2.frequency.value=f2;
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=color; bp.Q.value=3;
+    const g = mg(ctx, 0.3);
+    o1.connect(bp); o2.connect(bp); bp.connect(g);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    o1.start(); o2.start(); o1.stop(ctx.currentTime+decay+0.02); o2.stop(ctx.currentTime+decay+0.02);
+  },
+
+  rim(ctx, k) {
+    const pitch = 600 + k[2] * 600;
+    const tone = pitch + k[0] * 300;
+    const decay = 0.02 + k[1] * 0.06;
+    const o = ctx.createOscillator();
+    const g = mg(ctx, 0.5);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(tone, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(pitch * 0.5, ctx.currentTime + decay);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay + 0.02);
+    o.connect(g); o.start(); o.stop(ctx.currentTime + decay + 0.05);
+  }
+};
+
+function playSound(instIdx) {
+  const ctx = ac();
+  const inst = INSTS[instIdx];
+  synth[inst.id]?.(ctx, knobValues[instIdx]);
+}
+
+// ─── BUILD PADS ──────────────────────────────
+const padsGrid = document.getElementById('padsGrid');
+const padEls = [];
+
+INSTS.forEach((inst, idx) => {
+  const pad = document.createElement('div');
+  pad.className = `pad ${inst.color}`;
+  pad.innerHTML = `<span class="pad-name">${inst.name}</span><span class="pad-sub">${inst.sub}</span>`;
+  pad.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    ac();
+    // Flash
+    pad.classList.add('flash');
+    setTimeout(() => pad.classList.remove('flash'), 150);
+    playSound(idx);
+    selectPad(idx);
+  });
+  padsGrid.appendChild(pad);
+  padEls.push(pad);
+});
+
+// ─── KNOBS ───────────────────────────────────
+const knobsPanel = document.getElementById('knobsPanel');
+const knobsInner = document.getElementById('knobsInner');
+
+function buildKnobs(instIdx) {
+  const inst = INSTS[instIdx];
+  knobsInner.innerHTML = '';
+
+  inst.knobs.forEach((label, ki) => {
+    const unit = document.createElement('div');
+    unit.className = 'knob-unit';
+
+    const knobEl = document.createElement('div');
+    knobEl.className = 'knob';
+
+    const pointer = document.createElement('div');
+    pointer.className = 'knob-pointer';
+    pointer.style.background = `var(--${inst.color === 'white' ? 'white-accent' : inst.color})`;
+    knobEl.appendChild(pointer);
+
+    // Set initial rotation
+    const val = knobValues[instIdx][ki];
+    const angle = -135 + val * 270;
+    pointer.style.transform = `rotate(${angle}deg)`;
+
+    // Drag interaction
+    let dragging = false;
+    let startY, startVal;
+
+    knobEl.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      startY = e.clientY;
+      startVal = knobValues[instIdx][ki];
+      knobEl.setPointerCapture(e.pointerId);
+    });
+
+    knobEl.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dy = startY - e.clientY;
+      let nv = startVal + dy / 150;
+      nv = Math.max(0, Math.min(1, nv));
+      knobValues[instIdx][ki] = nv;
+      const a = -135 + nv * 270;
+      pointer.style.transform = `rotate(${a}deg)`;
+    });
+
+    const stopDrag = () => { dragging = false; };
+    knobEl.addEventListener('pointerup', stopDrag);
+    knobEl.addEventListener('pointercancel', stopDrag);
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'knob-label';
+    labelEl.textContent = label;
+
+    unit.appendChild(knobEl);
+    unit.appendChild(labelEl);
+    knobsInner.appendChild(unit);
+  });
+}
+
+// ─── PATTERN EDITOR (selected pad) ───────────
+const patternPanel = document.getElementById('patternPanel');
+const patternInner = document.getElementById('patternInner');
+let activePatternStepEls = [];
+
+function buildPatternEditor(instIdx) {
+  const inst = INSTS[instIdx];
+  patternInner.innerHTML = '';
+
+  // Beat numbers
+  const bnRow = document.createElement('div');
+  bnRow.className = 'beat-nums';
+  for (let g=0;g<4;g++) {
+    const gr = document.createElement('div');
+    gr.className = 'bnum-group';
+    for (let s=0;s<4;s++) {
+      const b = document.createElement('div');
+      b.className = 'bnum' + (s===0?' down':'');
+      b.textContent = g*4+s+1;
+      gr.appendChild(b);
+    }
+    bnRow.appendChild(gr);
+  }
+  patternInner.appendChild(bnRow);
+
+  // Steps row
+  const row = document.createElement('div');
+  row.className = 'pattern-label-row';
+
+  const label = document.createElement('div');
+  label.className = 'pattern-inst-name';
+  label.style.color = `var(--${inst.color === 'white' ? 'white-accent' : inst.color})`;
+  label.textContent = inst.name;
+  row.appendChild(label);
+
+  const stepsWrap = document.createElement('div');
+  stepsWrap.className = 'pattern-steps';
+
+  activePatternStepEls = [];
+  for (let g=0;g<4;g++) {
+    const gr = document.createElement('div');
+    gr.className = 'pattern-step-group';
+    for (let s=0;s<4;s++) {
+      const idx = g*4+s;
+      const step = document.createElement('div');
+      step.className = 'pstep' + (pattern[instIdx][idx] ? ` on ${inst.color}` : '');
+      step.addEventListener('click', () => {
+        pattern[instIdx][idx] = !pattern[instIdx][idx];
+        step.classList.toggle('on', pattern[instIdx][idx]);
+        if (pattern[instIdx][idx]) {
+          step.classList.add(inst.color);
+          playSound(instIdx);
+        } else {
+          step.classList.remove(inst.color);
+        }
+        // sync expanded seq
+        syncExpandedRow(instIdx);
+        document.querySelectorAll('.preset-pill').forEach(b=>b.classList.remove('on'));
+      });
+      gr.appendChild(step);
+      activePatternStepEls.push(step);
+    }
+    stepsWrap.appendChild(gr);
+  }
+
+  row.appendChild(stepsWrap);
+  patternInner.appendChild(row);
+}
+
+// ─── EXPANDED SEQUENCER ──────────────────────
+const seqToggle = document.getElementById('seqToggle');
+const seqExpanded = document.getElementById('seqExpanded');
+const seqExpandedInner = document.getElementById('seqExpandedInner');
+let seqOpen = false;
+let expandedStepEls = {}; // instIdx -> [els]
+
+function buildExpandedSeq() {
+  seqExpandedInner.innerHTML = '';
+  expandedStepEls = {};
+
+  INSTS.forEach((inst, instIdx) => {
+    if (instIdx === selectedPad) return; // skip the one shown above
+
+    const row = document.createElement('div');
+    row.className = 'seq-row';
+
+    const label = document.createElement('div');
+    label.className = 'seq-row-label';
+    label.style.color = `var(--${inst.color === 'white' ? 'white-accent' : inst.color})`;
+    label.textContent = inst.name;
+    label.addEventListener('click', () => selectPad(instIdx));
+    row.appendChild(label);
+
+    const stepsWrap = document.createElement('div');
+    stepsWrap.className = 'pattern-steps';
+
+    expandedStepEls[instIdx] = [];
+    for (let g=0;g<4;g++) {
+      const gr = document.createElement('div');
+      gr.className = 'pattern-step-group';
+      for (let s=0;s<4;s++) {
+        const idx = g*4+s;
+        const step = document.createElement('div');
+        step.className = 'pstep' + (pattern[instIdx][idx] ? ` on ${inst.color}` : '');
+        step.addEventListener('click', () => {
+          pattern[instIdx][idx] = !pattern[instIdx][idx];
+          step.classList.toggle('on', pattern[instIdx][idx]);
+          if (pattern[instIdx][idx]) {
+            step.classList.add(inst.color);
+            playSound(instIdx);
+          } else {
+            step.classList.remove(inst.color);
+          }
+          document.querySelectorAll('.preset-pill').forEach(b=>b.classList.remove('on'));
+        });
+        gr.appendChild(step);
+        expandedStepEls[instIdx].push(step);
+      }
+      stepsWrap.appendChild(gr);
+    }
+
+    row.appendChild(stepsWrap);
+    seqExpandedInner.appendChild(row);
+  });
+}
+
+function syncExpandedRow(instIdx) {
+  if (expandedStepEls[instIdx]) {
+    const inst = INSTS[instIdx];
+    expandedStepEls[instIdx].forEach((el, s) => {
+      el.classList.toggle('on', pattern[instIdx][s]);
+      if (pattern[instIdx][s]) el.classList.add(inst.color);
+      else el.classList.remove(inst.color);
+    });
+  }
+}
+
+seqToggle.addEventListener('click', () => {
+  seqOpen = !seqOpen;
+  seqExpanded.classList.toggle('open', seqOpen);
+  seqToggle.classList.toggle('expanded', seqOpen);
+});
+
+// ─── SELECT PAD ──────────────────────────────
+function selectPad(idx) {
+  if (selectedPad === idx) return;
+  selectedPad = idx;
+
+  // Update pad highlights
+  padEls.forEach((p, i) => p.classList.toggle('selected', i === idx));
+
+  // Build knobs
+  buildKnobs(idx);
+  knobsPanel.classList.add('open');
+
+  // Build pattern editor
+  buildPatternEditor(idx);
+  patternPanel.classList.add('open');
+
+  // Show toggle
+  seqToggle.classList.add('visible');
+
+  // Rebuild expanded seq
+  buildExpandedSeq();
+
+  // Re-apply playhead
+  if (currentStep >= 0) updatePlayhead(currentStep);
+}
+
+// ─── TRANSPORT ───────────────────────────────
+const playBtn = document.getElementById('playBtn');
+const tempoSlider = document.getElementById('tempoSlider');
+const tempoVal = document.getElementById('tempoVal');
+const volSlider = document.getElementById('volSlider');
+
+playBtn.addEventListener('click', () => {
+  ac();
+  playing = !playing;
+  playBtn.classList.toggle('on', playing);
+  if (playing) {
+    currentStep = -1;
+    scheduleNext();
+  } else {
+    clearTimeout(timerId);
+    clearPlayhead();
+    currentStep = -1;
+  }
+});
+
+function scheduleNext() {
+  if (!playing) return;
+  const ms = (60 / tempo / 4) * 1000;
+  timerId = setTimeout(() => { tick(); scheduleNext(); }, ms);
+}
+
+function tick() {
+  clearPlayhead();
+  currentStep = (currentStep + 1) % STEPS;
+  updatePlayhead(currentStep);
+  INSTS.forEach((inst, i) => {
+    if (pattern[i][currentStep]) {
+      playSound(i);
+      // flash pad
+      padEls[i].classList.add('flash');
+      setTimeout(() => padEls[i].classList.remove('flash'), 100);
+    }
+  });
+}
+
+function updatePlayhead(step) {
+  // Active pattern editor
+  if (activePatternStepEls[step]) activePatternStepEls[step].classList.add('current');
+  // Expanded rows
+  Object.values(expandedStepEls).forEach(arr => {
+    if (arr[step]) arr[step].classList.add('current');
+  });
+}
+
+function clearPlayhead() {
+  document.querySelectorAll('.pstep.current').forEach(el => el.classList.remove('current'));
+}
+
+tempoSlider.addEventListener('input', e => {
+  tempo = +e.target.value;
+  tempoVal.textContent = tempo;
+});
+
+volSlider.addEventListener('input', e => {
+  masterVol = +e.target.value / 100;
+});
+
+// ─── PRESETS ─────────────────────────────────
+const presetData = {
+  basic: [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+  ],
+  hiphop: [
+    [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],
+    [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+  ],
+  electro: [
+    [1,0,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,0],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,0,1],
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,0],
+    [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
+    [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+  ],
+  house: [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
+  ],
+};
+
+function loadPreset(name) {
+  const p = presetData[name];
+  if (!p) return;
+  pattern = p.map(r => r.map(v => !!v));
+  // Refresh all UI
+  if (selectedPad !== null) {
+    buildPatternEditor(selectedPad);
+    buildExpandedSeq();
+  }
+  document.querySelectorAll('.preset-pill').forEach(b => b.classList.toggle('on', b.dataset.p === name));
+}
+
+document.querySelectorAll('.preset-pill').forEach(btn => {
+  btn.addEventListener('click', () => loadPreset(btn.dataset.p));
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  pattern = INSTS.map(() => new Array(STEPS).fill(false));
+  if (selectedPad !== null) {
+    buildPatternEditor(selectedPad);
+    buildExpandedSeq();
+  }
+  document.querySelectorAll('.preset-pill').forEach(b => b.classList.remove('on'));
+});
+
+// ─── AUTO-SELECT KICK ON LOAD ────────────────
+setTimeout(() => selectPad(0), 800);
+</script>
+
+</body>
+</html>
